@@ -1,13 +1,21 @@
 package com.example.hittraxpc.hittraxmobile;
 
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.SystemClock;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.MainThread;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -29,6 +37,7 @@ import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
 
 import java.io.File;
+import java.net.URI;
 import java.util.Vector;
 
 public class MainActivity extends AppCompatActivity {
@@ -48,10 +57,10 @@ public class MainActivity extends AppCompatActivity {
     private int exitVeloCounter = 0;
     private int oneOrTwo = 0;
     private int notFoundNum = 0;
-
+    private Button btn;
     private double finalLA = 0;
     private double finalEV = 0;
-
+    private int counter = 0;
     private long startTime;
     private long endTime;
 
@@ -68,21 +77,71 @@ public class MainActivity extends AppCompatActivity {
         videoTitleText = (TextView)findViewById(R.id.videoTitle);
         timingText = (TextView)findViewById(R.id.timingEditable);
 
-        startTime = SystemClock.uptimeMillis();
-        //Put name of video file here
-        File file = new File(Environment.getExternalStorageDirectory() + "/Video/test_vid_1.mp4");
-
-        videoTitleText.setText(file.toString());
-
-        //Init the two grabbers
-
-        initializeGrabber(file);
+        btn = (Button)findViewById(R.id.button);
 
 
-        algorithm(file);
+
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT,
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                intent.setType("video/mp4");
+                startActivityForResult(intent, 0);
+            }
+        });
+
+
+
+        //Here I am going to implement the video file selection button
+
+
+
 
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (resultCode == RESULT_OK) {
+            Uri uri = data.getData();
+            startTime = SystemClock.uptimeMillis();
+
+            //Put name of video file here
+            File file = new File(Environment.getExternalStorageDirectory() + "/Video/" + getFileName(uri));
+//
+            videoTitleText.setText(file.toString());
+
+            //Init the two grabbers
+
+            initializeGrabber(file);
+
+
+            algorithm(file);
+        }
+    }
+    public String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
+    }
     //IN: a file pointing to the video to be processed
     //OUT: two globally initialized frame grabber objects
     private void initializeGrabber(File file){
@@ -91,14 +150,18 @@ public class MainActivity extends AppCompatActivity {
         fg2 = new FFmpegFrameGrabber(file);
         try{
             fg1.setAudioChannels(0);
-            fg1.setFormat("MP4");
-            fg1.setVideoCodec(avcodec.AV_CODEC_ID_H264);
+            fg1.setFormat("mov");
+            fg1.setVideoCodec(avcodec.AV_CODEC_ID_MPEG2VIDEO);
+            fg1.setVideoBitrate(1000000000);
             fg1.start();
+            fg1.setFrameNumber(95);
             fg1.grabFrame();
             fg2.setAudioChannels(0);
-            fg2.setFormat("MP4");
-            fg2.setVideoCodec(avcodec.AV_CODEC_ID_H264);
+            fg2.setFormat("mov");
+            fg2.setVideoCodec(avcodec.AV_CODEC_ID_MPEG2VIDEO);
+            fg2.setVideoBitrate(1000000000);
             fg2.start();
+            fg2.setFrameNumber(95);
 
         }catch(Exception ex){
             ex.printStackTrace();
@@ -112,6 +175,7 @@ public class MainActivity extends AppCompatActivity {
         Frame showFrame = new Frame();
         Bitmap bmp;
         String TAG = "Algorithm";
+        Log.d(TAG, "ONE");
         opencv_core.Mat cropMatOne = new opencv_core.Mat();
         opencv_core.Mat cropMatTwo = new opencv_core.Mat();
         boolean hasFirstFrame;
@@ -137,6 +201,7 @@ public class MainActivity extends AppCompatActivity {
             Mat threshImg = new Mat();
             MatVector contours = new MatVector();
             int dire;
+            counter++;
 
             if(read(1, fg1, TAG, file) == 0){
                 Log.d(TAG, "Found the end of the video");
@@ -145,7 +210,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
             }else{
                 frameCount = frameCount + 1;
-                //Log.d(TAG, "Frame one Count: " + frameCount);
                 hasFirstFrame = true;
                 try{
 
@@ -194,6 +258,7 @@ public class MainActivity extends AppCompatActivity {
 
                 //Threshold the difference
                 opencv_imgproc.threshold(diffImg, threshImg, 50, 255, THRESH_BINARY);
+                //Log.d(TAG, "Frame #: " + counter);
 
                 //run blob detection
                 if(findBall(threshImg, frameCount)){
@@ -202,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
 
                     findContours(threshImg, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, new Point(0,0));
 
-                    Log.d(TAG, "Contour number: " + contours.size());
+
 
 
 
@@ -282,7 +347,7 @@ public class MainActivity extends AppCompatActivity {
 
                     launchAngleAvg = launchAngleAvg + la;
                     launchAngleCounter++;
-                    Log.d("AverageLA", "Average Launch Angle: " + (launchAngleAvg / launchAngleCounter));
+                    //Log.d("AverageLA", "Average Launch Angle: " + (launchAngleAvg / launchAngleCounter));
 
 
                     double exVel = calculateExitVelocity(la, minRect.get(one).boundingRect2f().x(), minRect.get(two).boundingRect2f().x(),
@@ -290,17 +355,17 @@ public class MainActivity extends AppCompatActivity {
 
                     exitVeloAvg = exitVeloAvg + exVel;
                     exitVeloCounter++;
-                    Log.d("ExitV", "Average Exit Velocity: " + (exitVeloAvg / exitVeloCounter) + " Count: " + exitVeloCounter);
+                    //Log.d("ExitV", "Average Exit Velocity: " + (exitVeloAvg / exitVeloCounter) + " Count: " + exitVeloCounter);
 
                     if(notFoundTrigger == false){
                         notFoundTrigger = true;
-                        Log.d("TRIGGER", "Not found trigger activated");
+                        //Log.d("TRIGGER", "Not found trigger activated");
                     }
                 }else if(notFoundTrigger){
                     notFoundNum++;
-                    Log.d("TRIGGER", "There has been " + notFoundNum + " frames sequentially with no baseballs in them");
+                    //Log.d("TRIGGER", "There has been " + notFoundNum + " frames sequentially with no baseballs in them");
                     if(notFoundNum > 6){
-                        Log.d("TRIGGER", "We are now breaking");
+                        //L/og.d("TRIGGER", "We are now breaking");
                         break;
                     }
 
@@ -316,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
             threshImg.release();
         }
         endTime = SystemClock.uptimeMillis();
-        Log.d("TIMING", "Total Execution Time: " + (endTime - startTime));
+        ///Log.d("TIMING", "Total Execution Time: " + (endTime - startTime));
 
         launchAngleText.setText(Double.toString(finalLA));
         exitVeloText.setText(Double.toString(finalEV));
@@ -333,18 +398,18 @@ public class MainActivity extends AppCompatActivity {
 
         if(ev < 0){
             if(ev >= -3){
-                Log.d("First", "*" + ev + "*");
+                //Log.d("First", "*" + ev + "*");
                 exitVelo = exitVelo + ((1 / Math.abs(ev) - 1.1) * 10);
             }else{
-                Log.d("AHHHHHHHH", "*" + ev + "*");
+               // Log.d("AHHHHHHHH", "*" + ev + "*");
                 exitVelo = exitVelo + ((1 / Math.abs(ev)) * 10) - 2;
             }
 
         }else if(ev < 10){
-            Log.d("Passed Value", "*" + ev + "*");
+            //Log.d("Passed Value", "*" + ev + "*");
             exitVelo = exitVelo - 5;
         }else{
-            Log.d("YOUHITTHEELSE", "*" + ev + "*");
+            //Log.d("YOUHITTHEELSE", "*" + ev + "*");
             double num = Math.abs(ev - 20);
             exitVeloAvg = exitVeloAvg + (((1 / num) * 10) + 5);
         }

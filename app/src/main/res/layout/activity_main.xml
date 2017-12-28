@@ -9,12 +9,11 @@
     android:orientation="horizontal"
     tools:context="com.example.hittraxpc.hittraxmobile.MainActivity">
 
-    <TextView
-        android:id="@+id/videoTitleLabel"
+    <Button
+        android:id="@+id/button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Video Title: "
-         />
+        android:text="Open" />
 
     <TextView
         android:id="@+id/videoTitle"
