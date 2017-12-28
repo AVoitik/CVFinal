@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:columnCount="2"
+    android:rowCount="4"
+    android:orientation="horizontal"
+    tools:context="com.example.hittraxpc.hittraxmobile.MainActivity">
+
+    <TextView
+        android:id="@+id/videoTitleLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Video Title: "
+         />
+
+    <TextView
+        android:id="@+id/videoTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Video_Title" />
+
+    <TextView
+        android:id="@+id/exitVeloLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Exit Velocity: " />
+
+    <TextView
+        android:id="@+id/exitVeloEditable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="98" />
+
+    <TextView
+        android:id="@+id/launchAngleLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Launch Angle: " />
+
+    <TextView
+        android:id="@+id/launchAngleEditable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="21 Degrees" />
+
+    <TextView
+        android:id="@+id/timingLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Total Execution Time: " />
+
+    <TextView
+        android:id="@+id/timingEditable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="1354 ms" />
+</GridLayout>
