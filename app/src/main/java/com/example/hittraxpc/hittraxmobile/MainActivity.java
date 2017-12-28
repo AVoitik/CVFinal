@@ -79,15 +79,20 @@ public class MainActivity extends AppCompatActivity {
 
         btn = (Button)findViewById(R.id.button);
 
-
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setType("video/mp4");
+        startActivityForResult(intent, 0);
 
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT,
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                intent.setType("video/mp4");
-                startActivityForResult(intent, 0);
+
+
+                Intent i = getBaseContext().getPackageManager()
+                        .getLaunchIntentForPackage( getBaseContext().getPackageName() );
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
             }
         });
 
@@ -146,6 +151,13 @@ public class MainActivity extends AppCompatActivity {
     //OUT: two globally initialized frame grabber objects
     private void initializeGrabber(File file){
         String TAG = "initializeGrabber";
+        try{
+            fg1.release();
+            fg2.release();
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
         fg1 = new FFmpegFrameGrabber(file);
         fg2 = new FFmpegFrameGrabber(file);
         try{
@@ -175,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
         Frame showFrame = new Frame();
         Bitmap bmp;
         String TAG = "Algorithm";
-        Log.d(TAG, "ONE");
+
         opencv_core.Mat cropMatOne = new opencv_core.Mat();
         opencv_core.Mat cropMatTwo = new opencv_core.Mat();
         boolean hasFirstFrame;
@@ -202,13 +214,14 @@ public class MainActivity extends AppCompatActivity {
             MatVector contours = new MatVector();
             int dire;
             counter++;
-
+            Log.d(TAG, "ONE");
             if(read(1, fg1, TAG, file) == 0){
                 Log.d(TAG, "Found the end of the video");
                 Log.d(TAG, "frameOne broke");
                 hasFirstFrame = false;
                 break;
             }else{
+                Log.d(TAG, "Frame One#: " + counter);
                 frameCount = frameCount + 1;
                 hasFirstFrame = true;
                 try{
@@ -233,7 +246,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             }else{
                 //frameCount = frameCount + 1;
-                //Log.d(TAG, "Frame two Count: " + frameCount);
+                Log.d(TAG, "Frame two Count: " + frameCount);
                 hasSecondFrame = true;
                 try {
 
@@ -258,7 +271,7 @@ public class MainActivity extends AppCompatActivity {
 
                 //Threshold the difference
                 opencv_imgproc.threshold(diffImg, threshImg, 50, 255, THRESH_BINARY);
-                //Log.d(TAG, "Frame #: " + counter);
+
 
                 //run blob detection
                 if(findBall(threshImg, frameCount)){
