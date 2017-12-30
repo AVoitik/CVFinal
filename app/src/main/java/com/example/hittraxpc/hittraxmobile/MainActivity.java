@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.MainThread;
 import android.support.v7.app.AppCompatActivity;
@@ -121,9 +122,13 @@ public class MainActivity extends AppCompatActivity {
             //Init the two grabbers
 
             initializeGrabber(file);
-
+            long newStart = SystemClock.uptimeMillis();
 
             algorithm(file);
+
+            long newEnd = SystemClock.uptimeMillis();
+
+            timingText.setText(Long.toString(newEnd - newStart));
         }
     }
     public String getFileName(Uri uri) {
@@ -153,27 +158,22 @@ public class MainActivity extends AppCompatActivity {
         String TAG = "initializeGrabber";
         try{
             fg1.release();
-            fg2.release();
+            //fg2.release();
         }catch(Exception e){
             e.printStackTrace();
         }
 
         fg1 = new FFmpegFrameGrabber(file);
-        fg2 = new FFmpegFrameGrabber(file);
+        //fg2 = new FFmpegFrameGrabber(file);
         try{
             fg1.setAudioChannels(0);
             fg1.setFormat("mov");
             fg1.setVideoCodec(avcodec.AV_CODEC_ID_MPEG2VIDEO);
             fg1.setVideoBitrate(1000000000);
             fg1.start();
-            fg1.setFrameNumber(95);
+
             fg1.grabFrame();
-            fg2.setAudioChannels(0);
-            fg2.setFormat("mov");
-            fg2.setVideoCodec(avcodec.AV_CODEC_ID_MPEG2VIDEO);
-            fg2.setVideoBitrate(1000000000);
-            fg2.start();
-            fg2.setFrameNumber(95);
+
 
         }catch(Exception ex){
             ex.printStackTrace();
@@ -214,14 +214,14 @@ public class MainActivity extends AppCompatActivity {
             MatVector contours = new MatVector();
             int dire;
             counter++;
-            Log.d(TAG, "ONE");
+            //Log.d(TAG, "ONE");
             if(read(1, fg1, TAG, file) == 0){
-                Log.d(TAG, "Found the end of the video");
-                Log.d(TAG, "frameOne broke");
+                //Log.d(TAG, "Found the end of the video");
+                //Log.d(TAG, "frameOne broke");
                 hasFirstFrame = false;
                 break;
             }else{
-                Log.d(TAG, "Frame One#: " + counter);
+                //Log.d(TAG, "Frame One#: " + counter);
                 frameCount = frameCount + 1;
                 hasFirstFrame = true;
                 try{
@@ -239,14 +239,14 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-            if(read(2, fg2, TAG, file) == 0){
+            if(read(2, fg1, TAG, file) == 0){
                 Log.d(TAG, "Found the end of the video");
                 Log.d(TAG, "frame Two broke");
                 hasSecondFrame = false;
                 break;
             }else{
                 //frameCount = frameCount + 1;
-                Log.d(TAG, "Frame two Count: " + frameCount);
+                //Log.d(TAG, "Frame two Count: " + frameCount);
                 hasSecondFrame = true;
                 try {
 
@@ -291,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
 
                         Point2f rect_points = new Point2f();
 
-                        minRect.elementAt(i).points(rect_points);
+                        //minRect.elementAt(i).points(rect_points);
                         //showFrame = convToMatOne.convert(threshImg);
                         //bmp = conv.convert(showFrame);
 
@@ -360,7 +360,9 @@ public class MainActivity extends AppCompatActivity {
 
                     launchAngleAvg = launchAngleAvg + la;
                     launchAngleCounter++;
-                    //Log.d("AverageLA", "Average Launch Angle: " + (launchAngleAvg / launchAngleCounter));
+
+
+                    Log.d("AverageLA", "Average Launch Angle: " + (launchAngleAvg / launchAngleCounter));
 
 
                     double exVel = calculateExitVelocity(la, minRect.get(one).boundingRect2f().x(), minRect.get(two).boundingRect2f().x(),
@@ -368,8 +370,11 @@ public class MainActivity extends AppCompatActivity {
 
                     exitVeloAvg = exitVeloAvg + exVel;
                     exitVeloCounter++;
-                    //Log.d("ExitV", "Average Exit Velocity: " + (exitVeloAvg / exitVeloCounter) + " Count: " + exitVeloCounter);
-
+                    Log.d("ExitV", "Average Exit Velocity: " + (exitVeloAvg / exitVeloCounter) + " Count: " + exitVeloCounter);
+                    if(launchAngleCounter == 1){
+                        finalEV = exitVeloAvg / exitVeloCounter;
+                        finalLA = launchAngleAvg / launchAngleCounter;
+                    }
                     if(notFoundTrigger == false){
                         notFoundTrigger = true;
                         //Log.d("TRIGGER", "Not found trigger activated");
@@ -398,7 +403,7 @@ public class MainActivity extends AppCompatActivity {
 
         launchAngleText.setText(Double.toString(finalLA));
         exitVeloText.setText(Double.toString(finalEV));
-        timingText.setText(Long.toString(endTime - startTime));
+
     }
     private double calculateExitVelocity(double ev, float zeroX, float oneX, float zeroY, float oneY){
         float horizDist = zeroX - oneX;
@@ -409,6 +414,9 @@ public class MainActivity extends AppCompatActivity {
         double pix_per_sec = result / .00833;
         double exitVelo = pix_per_sec / 141.273055;
 
+
+
+        /* I dont understand these lines */
         if(ev < 0){
             if(ev >= -3){
                 //Log.d("First", "*" + ev + "*");
