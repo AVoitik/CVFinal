@@ -47,15 +47,19 @@ public class MainActivity extends AppCompatActivity {
     private OpenCVFrameConverter.ToMat convToMatOne = new OpenCVFrameConverter.ToMat();
     private OpenCVFrameConverter.ToMat convToMatTwo = new OpenCVFrameConverter.ToMat();
     private TextView launchAngleText, exitVeloText, videoTitleText, timingText;
+    private ImageView iv;
     private FFmpegFrameGrabber fg1, fg2;
     private int frameCount = 1;
     private Frame fr = new Frame();
-    private Frame frameOne = new Frame();
-    private Frame frameTwo = new Frame();
+    private static Frame frameOne = new Frame();
+    private static Frame frameTwo = new Frame();
+    private Bitmap bmp;
     private double launchAngleAvg = 0;
     private int launchAngleCounter = 0;
     private double exitVeloAvg = 0;
     private int exitVeloCounter = 0;
+    private static Mat copyOne = new Mat();
+    private static Mat copyTwo = new Mat();
     private int oneOrTwo = 0;
     private int notFoundNum = 0;
     private Button btn;
@@ -76,14 +80,10 @@ public class MainActivity extends AppCompatActivity {
         launchAngleText = (TextView)findViewById(R.id.launchAngleEditable);
         exitVeloText = (TextView)findViewById(R.id.exitVeloEditable);
         videoTitleText = (TextView)findViewById(R.id.videoTitle);
-        timingText = (TextView)findViewById(R.id.timingEditable);
-
+        //timingText = (TextView)findViewById(R.id.timingEditable);
+        String s = getIntent().getStringExtra("VID_TITLE");
         btn = (Button)findViewById(R.id.button);
-
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        intent.setType("video/mp4");
-        startActivityForResult(intent, 0);
+        iv = (ImageView)findViewById(R.id.imageView);
 
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -97,61 +97,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        File file = new File(Environment.getExternalStorageDirectory() + "/Video/" + s);
 
+        initializeGrabber(file);
+        long newStart = SystemClock.uptimeMillis();
+
+        algorithm(file);
+
+        long newEnd = SystemClock.uptimeMillis();
+
+        timingText.setText(Long.toString(newEnd - newStart));
 
         //Here I am going to implement the video file selection button
 
-
-
-
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (resultCode == RESULT_OK) {
-            Uri uri = data.getData();
-            startTime = SystemClock.uptimeMillis();
-
-            //Put name of video file here
-            File file = new File(Environment.getExternalStorageDirectory() + "/Video/" + getFileName(uri));
-//
-            videoTitleText.setText(file.toString());
-
-            //Init the two grabbers
-
-            initializeGrabber(file);
-            long newStart = SystemClock.uptimeMillis();
-
-            algorithm(file);
-
-            long newEnd = SystemClock.uptimeMillis();
-
-            timingText.setText(Long.toString(newEnd - newStart));
-        }
-    }
-    public String getFileName(Uri uri) {
-        String result = null;
-        if (uri.getScheme().equals("content")) {
-            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
-            try {
-                if (cursor != null && cursor.moveToFirst()) {
-                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
-                }
-            } finally {
-                cursor.close();
-            }
-        }
-        if (result == null) {
-            result = uri.getPath();
-            int cut = result.lastIndexOf('/');
-            if (cut != -1) {
-                result = result.substring(cut + 1);
-            }
-        }
-        return result;
-    }
     //IN: a file pointing to the video to be processed
     //OUT: two globally initialized frame grabber objects
     private void initializeGrabber(File file){
@@ -171,8 +131,7 @@ public class MainActivity extends AppCompatActivity {
             fg1.setVideoCodec(avcodec.AV_CODEC_ID_MPEG2VIDEO);
             fg1.setVideoBitrate(1000000000);
             fg1.start();
-
-            fg1.grabFrame();
+            fg1.grabImage();
 
 
         }catch(Exception ex){
@@ -216,24 +175,29 @@ public class MainActivity extends AppCompatActivity {
             counter++;
             //Log.d(TAG, "ONE");
             if(read(1, fg1, TAG, file) == 0){
-                //Log.d(TAG, "Found the end of the video");
-                //Log.d(TAG, "frameOne broke");
+
+                Log.d(TAG, "Found the end of the video");
+                Log.d(TAG, "frameOne broke");
                 hasFirstFrame = false;
                 break;
             }else{
+
+
                 //Log.d(TAG, "Frame One#: " + counter);
                 frameCount = frameCount + 1;
                 hasFirstFrame = true;
                 try{
 
                     cropMatOne = convToMatOne.convert(frameOne);
-                    flip(cropMatOne, rotatedFrameOne, -1);
-                    frameOneROI = new opencv_core.Mat(rotatedFrameOne, myRect);
+                    cropMatOne.copyTo(copyOne);
+                    //flip(cropMatOne, rotatedFrameOne, -1);
+                    frameOneROI = new opencv_core.Mat(cropMatOne, myRect);
                 }catch(NullPointerException e){
                     e.printStackTrace();
                     Log.d(TAG, "frameOne broke in convert");
                     break;
                 }
+
 
             }
 
@@ -251,13 +215,18 @@ public class MainActivity extends AppCompatActivity {
                 try {
 
                     cropMatTwo = convToMatTwo.convert(frameTwo);
-                    flip(cropMatTwo, rotatedFrameTwo, -1);
-                    frameTwoROI = new opencv_core.Mat(rotatedFrameTwo, myRect);
+                    cropMatTwo.copyTo(copyTwo);
+                    //flip(cropMatTwo, rotatedFrameTwo, -1);
+                    frameTwoROI = new opencv_core.Mat(cropMatTwo, myRect);
+                    showFrame = convToMatOne.convert(frameTwoROI);
+                    bmp = conv.convert(showFrame);
+                    iv.setImageBitmap(bmp);
                 }catch(NullPointerException e){
                     e.printStackTrace();
                     Log.d(TAG, "frameTwo broke in convert");
                     break;
                 }
+
             }
 
             if(hasFirstFrame && hasSecondFrame){
@@ -269,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
                 //Double differencing
                 absdiff(grayOne, grayTwo, diffImg);
 
+
                 //Threshold the difference
                 opencv_imgproc.threshold(diffImg, threshImg, 50, 255, THRESH_BINARY);
 
@@ -276,13 +246,11 @@ public class MainActivity extends AppCompatActivity {
                 //run blob detection
                 if(findBall(threshImg, frameCount)){
 
+
+
                     //Find contours in the found image
 
                     findContours(threshImg, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, new Point(0,0));
-
-
-
-
 
                     Vector<RotatedRect> minRect = new Vector<RotatedRect>();
                     for(int i = 0; i < contours.size(); i++) {
@@ -397,6 +365,8 @@ public class MainActivity extends AppCompatActivity {
             frameTwoROI.release();
             diffImg.release();
             threshImg.release();
+
+
         }
         endTime = SystemClock.uptimeMillis();
         ///Log.d("TIMING", "Total Execution Time: " + (endTime - startTime));
@@ -414,9 +384,6 @@ public class MainActivity extends AppCompatActivity {
         double pix_per_sec = result / .00833;
         double exitVelo = pix_per_sec / 141.273055;
 
-
-
-        /* I dont understand these lines */
         if(ev < 0){
             if(ev >= -3){
                 //Log.d("First", "*" + ev + "*");
@@ -432,6 +399,7 @@ public class MainActivity extends AppCompatActivity {
         }else{
             //Log.d("YOUHITTHEELSE", "*" + ev + "*");
             double num = Math.abs(ev - 20);
+
             exitVeloAvg = exitVeloAvg + (((1 / num) * 10) + 5);
         }
 
